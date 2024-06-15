@@ -21,9 +21,19 @@ Proses instalasi packet-packet yang dibutuhkan dalam mengimplementasi penerapan 
    
    ```sudo apt install bind9 dnsutils```
 
-   Menunggu hingga proses instalasi berakhir kemudian lanjut pada tahap konfigurasi bind
+   Menunggu hingga proses instalasi berakhir kemudian lanjut pada tahap konfig hostname sebelum lanjut konfig hostname
 
-2. Konfigurasi
+   ```hostnamectl set-hostname ns1.null.land #hostnamenya ns1```
+
+   kemudian pada file config hosts di direktory ```sudo vim /etc/hosts``` seperti berikut
+   
+   ![hosts](https://github.com/anwarmuhamma/Domain-Name-Server/assets/32747959/19e07e4a-a5c2-491d-9337-d636d61e420d)
+
+   lanjut ketahap berkutnya konfig resolve jika diperlukan ```sudo vim /etc/systemd/resolved.conf``` setelah itu restart service resolve ```sudo service systemd-resolved restart```
+   \
+   ![resolve](https://github.com/anwarmuhamma/Domain-Name-Server/assets/32747959/0d3f9af5-3eca-46ab-91bd-5f0a6ed7728c)
+   \
+3. Konfigurasi
 
    Ada 2 file yang perlu dimodifikasi terlebih dahulu sebelum mulai mengkonfigurasi zona dan record. Anda harus menyesuaikan perubahan agar sesuai dengan kebutuhan. File-file tersebut adalah sebagai berikut:
 
@@ -33,70 +43,64 @@ Proses instalasi packet-packet yang dibutuhkan dalam mengimplementasi penerapan 
 
     ```sudo vim /etc/bind/named.conf.options```
 
-  ![Option](https://github.com/anwarmuhamma/Domain-Name-Server/assets/32747959/d492b5a5-a9c7-4236-b18c-700fa0d88f86)
-
+  ![option](https://github.com/anwarmuhamma/Domain-Name-Server/assets/32747959/76cb9c67-5462-438b-b42a-8c6f385bc657)
 
   kita perlu buat 2 file dengan nama yang sama persis pada directory /cte/bind/zones/. Sebelum server dapat menentukan nama apa pun, setiap file zona harus memiliki catatan yang ditambahkan untuk mewakili host yang ada di jaringan. Saya akan membahas setiap zona satu per satu dimulai dengan zona otoritatif db.null.fw (null.land). SANGAT penting untuk diingat untuk menambah Nomor Seri setiap kali Anda mengedit file zona apa pun atau memuat ulang zona serta transfer zona mungkin gagal.
 
   ```sudo vim /cte/bind/zones/db.null.fw```
 
-  ![fw](https://github.com/anwarmuhamma/Domain-Name-Server/assets/32747959/7de52322-8ad4-415d-ad3f-75ad116e5b94)
+  ![fw](https://github.com/anwarmuhamma/Domain-Name-Server/assets/32747959/85f8dc4a-c087-48e7-b4de-c78c49f9da9b)
 
   ```sudo vim /cte/bind/zones/db.null.rev```
 
-  ![rev](https://github.com/anwarmuhamma/Domain-Name-Server/assets/32747959/e6f8b8c7-c0f8-480f-a9f1-a0b21fb11290)
+  ![reverse](https://github.com/anwarmuhamma/Domain-Name-Server/assets/32747959/6f6d4676-3286-4716-9e46-3df734a5c650)
 
-  Ceheck konfigurasi dari file  menggunakan named-checkconf
+  Ceheck konfigurasi dan zones
 
+  named-checkconfig
+  
   ```sudo named-checkconf /etc/bind/named.conf.options```
   
   ```sudo named-checkconf /etc/bind/named.conf.local```
 
+  named-checkzon
+
+  ![checkzon](https://github.com/anwarmuhamma/Domain-Name-Server/assets/32747959/ea81d5b4-f1ba-4808-93ed-6221c4c631ee)
+
   Jika menampilkan error maka hasus dicek kembali syntax yang terdapat pada keddua file tersebut
 
-  Restart bind service
+  Restart bind9, named dan resolved service
 
   pastikan ketika menjalakan perintah ini tidak menghasilkan error
   
-  ```sudo systemctl restart bind9```
-
-  Mengeck status bind9
-
-  ```sudo systemctl restart bind9```
-
-  berikut merupakan hasil yang ditampilkan
-
-  ![Status bind](https://github.com/anwarmuhamma/Domain-Name-Server/assets/32747959/b7b5fe79-e9a2-4ddd-91c8-f2498c067e36)
-
-
+  ```sudo systemctl restart bind9; sudo systemctl restart named; sudo systemctl restart resolved```
+  \
+  cek status bind9, named dan resolved ```sudo systemctl status bind9; sudo systemctl status named; sudo systemctl status resolved```
+  \
   ## Hasil Pengujian
 
-  ```dig -x 192.168.43.137```
+  menggunakan Windown
 
-  ![dig-x](https://github.com/anwarmuhamma/Domain-Name-Server/assets/32747959/0d00adcd-5726-451f-b85c-cc621bffbfda)
+  ```
+   nslookup -query=any null.land
+   nslookup -query=ns null.land
+   nslookup -query=soa null.land
+   nslookup -query=mx null.land
+   nslookup -192.168.43.137 null.land
+   nslookup -192.168.43.137 gmail.com
+ ```
 
+  ![Windows](https://github.com/anwarmuhamma/Domain-Name-Server/assets/32747959/83647fd9-44eb-41fc-912c-ee62418bba5e)
 
-  ```dig www.null.land```
+ Menggunakan Linux
+ ```
+   dig @127.0.0.1 ns1.null.land
+   dig -x 192.168.43.137
+   dig null.land @192.168.43.137 | grep -e "^host" -e ";; flags"
+   dig +norec null.land @192.168.43.137 | grep -e "^host" -e ";; flags"
+   dig +norec null.land @192.168.43.137 | sed -n -e '/;; flags/p' -e '/^;; AUTH/,/^$/p'
+   dig +noall +answer SOA +multi null.land
+ ```
 
-  ![dig-www](https://github.com/anwarmuhamma/Domain-Name-Server/assets/32747959/96b90b19-1ef0-48c6-877c-6ccafbbaf43a)
-
-
-  ```dig NS null.land```
-
-  ![dig-NS](https://github.com/anwarmuhamma/Domain-Name-Server/assets/32747959/cf29a909-42a4-4260-96e5-e5153e198e19)
-
-
-  ```nslookup```
-
-  ![nslookup](https://github.com/anwarmuhamma/Domain-Name-Server/assets/32747959/00e568b6-f203-4820-9e29-3ba3d97ba7b9)
-
-
-
-
-  
-
-  
-
-
-
+ ![Linux](https://github.com/anwarmuhamma/Domain-Name-Server/assets/32747959/92431066-0617-4d42-ab11-992f218427f9)
 
